@@ -5,14 +5,38 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-contract RMDSNFT is ERC721, ERC721URIStorage, Ownable {
+contract RMDSNFT is ERC721, ReentrancyGuard, ERC721URIStorage, Ownable {
     using Counters for Counters.Counter;
+    using ECDSA for bytes32;
+
     Counters.Counter private _tokenIdCounter;
     address contractAddress;
+    address private _systemAddress;
+    mapping(string => bool) public _usedNonces;
 
     constructor(address marketplaceAddress) ERC721("RMDSNFT", "RMDSNFT") {
         contractAddress = marketplaceAddress;
+    }
+
+    function whitelistMint(string memory uri, string memory nonce, bytes32 hash, bytes memory signature) external payable nonReentrant {
+        require(matchSigner(hash, signature), "Please mint only through the website");
+        require(!_usedNonces[nonce], "You cannot reuse a hash");
+        require(hashTransaction(msg.sender, uri, nonce) == hash, "Incorrect Hash");
+
+        _usedNonces[nonce] = true;
+        safeMint(uri);
+    }
+
+    function matchSigner(bytes32 hash, bytes memory signature) public view returns (bool) {
+        return _systemAddress == hash.toEthSignedMessageHash().recover(signature);
+    }
+
+    function hashTransaction(address sender, string memory uri, string memory nonce) public view returns (bytes32) {
+        bytes32 hash = keccak256(abi.encodePacked(sender, uri, nonce, address(this)));
+        return hash;
     }
 
     event NFTMinted(
