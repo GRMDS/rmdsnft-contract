@@ -46,7 +46,7 @@ contract RMDSNFT is ERC721, ReentrancyGuard, ERC721URIStorage, Ownable {
         string tokenURI
     );
 
-    function safeMint(string memory uri) public payable {
+    function safeMint(string memory uri) internal {
         uint256 tokenId = _tokenIdCounter.current();
         _tokenIdCounter.increment();
         _safeMint(msg.sender, tokenId);
